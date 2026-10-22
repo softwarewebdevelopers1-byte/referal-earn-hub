@@ -1,0 +1,194 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+.h1 {
+  font-size: 22px;
+  font-weight: 800;
+}
+.sub {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+.filters {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.filters > *:first-child {
+  flex: 1;
+  min-width: 220px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--space-4);
+}
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+  color: inherit;
+}
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.thumb {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.9);
+}
+.playIcon {
+  opacity: 0.9;
+}
+.duration {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+.doneBadge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: rgba(22, 163, 74, 0.95);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.body {
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.reward {
+  font-weight: 700;
+  color: var(--orange-600);
+  font-size: 14px;
+}
+.title {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+.desc {
+  font-size: 13px;
+  color: var(--text-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.cta {
+  margin-top: auto;
+  padding-top: var(--space-2);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--orange-600);
+}
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+.back:hover {
+  color: var(--text);
+}
+.player {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.9);
+  overflow: hidden;
+}
+.playBig {
+  background: rgba(0, 0, 0, 0.3);
+  border: none;
+  color: #fff;
+  border-radius: 50%;
+  padding: 8px;
+  display: inline-flex;
+  transition:
+    transform 0.15s ease,
+    background 0.15s ease;
+}
+.playBig:hover {
+  transform: scale(1.05);
+  background: rgba(0, 0, 0, 0.4);
+}
+.playerDemo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  color: #fff;
+  text-align: center;
+  padding: var(--space-4);
+}
+.playerHint {
+  font-size: 12px;
+  opacity: 0.85;
+}
+.playerBar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: rgba(0, 0, 0, 0.35);
+}
+.playerBarFill {
+  height: 100%;
+  background: var(--orange-500);
+  transition: width 0.3s ease;
+}
+.rewardBox {
+  margin-top: var(--space-4);
+  padding: var(--space-4);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
