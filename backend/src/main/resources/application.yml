@@ -1,0 +1,75 @@
+server:
+  port: ${SERVER_PORT:8080}
+
+spring:
+  application:
+    name: earnhub
+  datasource:
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:earnhub}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Africa/Nairobi
+    username: ${DB_USER:earnhub}
+    password: ${DB_PASSWORD:}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+        format_sql: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: false
+    validate-on-migrate: true
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:change-me-to-a-64-char-random-string-in-production-change-me}
+    expiration-ms: ${JWT_EXPIRATION_MS:86400000}
+  cors:
+    allowed-origins: ${CORS_ORIGINS:http://localhost:5173}
+  frontend:
+    base-url: ${FRONTEND_BASE_URL:http://localhost:5173}
+  referral:
+    commission-amount: ${REFERRAL_COMMISSION:30.00}
+    first-withdrawal-threshold: ${WITHDRAWAL_THRESHOLD:100}
+  payment:
+    activation-amount: ${ACTIVATION_AMOUNT:500.00}
+    currency: KES
+    payhero:
+      enabled: ${PAYHERO_ENABLED:true}
+      api-base-url: ${PAYHERO_API_BASE:https://backend.payhero.co.ke/api/v2}
+      stk-push-path: ${PAYHERO_STK_PATH:/payments/initiate-stk-push}
+      status-path: ${PAYHERO_STATUS_PATH:/payments/status}
+      username: ${PAYHERO_USERNAME:}
+      password: ${PAYHERO_PASSWORD:}
+      channel-id: ${PAYHERO_CHANNEL_ID:}
+      callback-url: ${PAYHERO_CALLBACK_URL:http://localhost:8080/api/payments/callback}
+      b2c-enabled: false
+  video:
+    default-reward: ${VIDEO_DEFAULT_REWARD:10.00}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when_authorized
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: method
+  api-docs:
+    path: /v3/api-docs
+
+logging:
+  level:
+    com.crlzTech.referal: INFO
+    org.springframework.security: WARN

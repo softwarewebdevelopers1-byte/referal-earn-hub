@@ -1,0 +1,15 @@
+spring:
+  jpa:
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+app:
+  payment:
+    payhero:
+      enabled: false   # Dev mode: no live PayHero calls
+app:
+  dev:
+    admin-email: ${DEV_ADMIN_EMAIL:admin@example.com}
+    admin-password: ${DEV_ADMIN_PASSWORD:ChangeMe123!}
