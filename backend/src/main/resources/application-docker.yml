@@ -1,0 +1,5 @@
+spring:
+  datasource:
+    url: jdbc:mysql://${DB_HOST:mysql}:${DB_PORT:3306}/${MYSQL_DATABASE:${DB_NAME:earnhub}}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Africa/Nairobi
+    username: ${MYSQL_USER:${DB_USER:earnhub}}
+    password: ${MYSQL_PASSWORD:${DB_PASSWORD:}}

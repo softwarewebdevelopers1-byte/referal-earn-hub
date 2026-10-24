@@ -1,29 +1,24 @@
-FROM eclipse-temurin:21-jdk-jammy AS build
+FROM maven:3.9.9-eclipse-temurin-21-alpine AS build
 
 WORKDIR /workspace
 
-COPY .mvn/ .mvn/
-COPY mvnw pom.xml ./
-RUN chmod +x mvnw \
-    && ./mvnw -B -DskipTests dependency:go-offline
+COPY pom.xml .
 
-COPY src/ src/
-RUN ./mvnw -B -DskipTests clean package \
+COPY src ./src
+RUN mvn -B clean package -DskipTests --no-transfer-progress \
     && find target -maxdepth 1 -type f -name '*.jar' \
         ! -name 'original-*.jar' -exec cp {} /workspace/app.jar \;
 
-FROM eclipse-temurin:21-jre-jammy
+FROM eclipse-temurin:21-jre-alpine AS runtime
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl \
-    && rm -rf /var/lib/apt/lists/* \
-    && useradd --system --create-home --uid 10001 appuser
+# Removed apk add --no-cache curl to bypass container DNS network issues
+RUN addgroup -S app \
+    && adduser -S -G app app
 
 WORKDIR /app
-COPY --from=build --chown=appuser:appuser /workspace/app.jar /app/app.jar
+COPY --from=build --chown=app:app /workspace/app.jar /app/app.jar
 
-USER appuser
-EXPOSE 8080
-ENV SERVER_ADDRESS=0.0.0.0
+USER app
+EXPOSE 8000
 
-ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75.0", "-jar", "/app/app.jar"]
