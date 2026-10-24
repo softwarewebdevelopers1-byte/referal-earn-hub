@@ -10,8 +10,8 @@ app:
       enabled: false   # Dev mode: no live PayHero calls
   dev:
     seed-initial-users: ${SEED_INITIAL_USERS:true}
-    admin-email: ${DEV_ADMIN_EMAIL:earn.hub@gmail.com}
-    admin-password: ${DEV_ADMIN_PASSWORD:s0l!du$er}
-    referral-email: ${DEV_REFERRAL_EMAIL:referrer@example.com}
-    referral-password: ${DEV_REFERRAL_PASSWORD:ChangeMe123!}
-    referral-phone: ${DEV_REFERRAL_PHONE:+254700000001}
+    admin-email: ${DEV_ADMIN_EMAIL:}
+    admin-password: ${DEV_ADMIN_PASSWORD:}
+    referral-email: ${DEV_REFERRAL_EMAIL:}
+    referral-password: ${DEV_REFERRAL_PASSWORD:}
+    referral-phone: ${DEV_REFERRAL_PHONE:}

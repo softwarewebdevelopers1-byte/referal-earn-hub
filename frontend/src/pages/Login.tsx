@@ -57,7 +57,7 @@ export function Login() {
         </p>
 
         {(location.state as { message?: string } | null)?.message && (
-          <p className={styles.formError} style={{ color: "var(--success)" }} role="status">
+          <p className={styles.formSuccess} role="status">
             {(location.state as { message: string }).message}
           </p>
         )}

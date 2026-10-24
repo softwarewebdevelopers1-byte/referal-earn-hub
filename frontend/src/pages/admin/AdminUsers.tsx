@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Eye, ShieldOff, ShieldCheck } from "lucide-react";
+import { Eye, ShieldOff, ShieldCheck, Plus, Pencil, KeyRound } from "lucide-react";
 import { useApp } from "../../context/AppContext";
 import {
   Badge,
@@ -7,6 +7,7 @@ import {
   Card,
   CardHeader,
   EmptyState,
+  Field,
   Modal,
   Pagination,
   SelectInput,
@@ -21,7 +22,7 @@ import styles from "./Admin.module.css";
 const PAGE_SIZE = 8;
 
 export function AdminUsers() {
-  const { users, currentUser, toggleUserSuspension, totalsForUser, referrals, notify } =
+  const { users, currentUser, toggleUserSuspension, totalsForUser, referrals, notify, createAdminUser, updateAdminUserEmail, resetAdminUserPassword } =
     useApp();
   const [query, setQuery] = useState("");
   const [role, setRole] = useState("ALL");
@@ -29,6 +30,15 @@ export function AdminUsers() {
   const [page, setPage] = useState(1);
   const [detail, setDetail] = useState<User | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [actionUser, setActionUser] = useState<User | null>(null);
+  const [action, setAction] = useState<"email" | "password" | null>(null);
+  const [formError, setFormError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [createForm, setCreateForm] = useState({ firstName: "", lastName: "", email: "", phone: "", role: "USER" as "USER" | "ADMIN", password: "" });
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [passwordConfirm, setPasswordConfirm] = useState("");
 
   const toggle = async (id: string) => {
     setBusyId(id);
@@ -39,6 +49,42 @@ export function AdminUsers() {
     } finally {
       setBusyId(null);
     }
+  };
+
+  const openEmailEditor = (user: User) => {
+    setActionUser(user); setAction("email"); setEmail(user.email); setFormError("");
+  };
+
+  const openPasswordReset = (user: User) => {
+    setActionUser(user); setAction("password"); setPassword(""); setPasswordConfirm(""); setFormError("");
+  };
+
+  const submitCreate = async () => {
+    if (createForm.firstName.trim().length < 2 || createForm.lastName.trim().length < 2) return setFormError("Enter the user's first and last name.");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(createForm.email)) return setFormError("Enter a valid email address.");
+    if (createForm.phone.replace(/\D/g, "").length < 9) return setFormError("Enter a valid phone number.");
+    if (createForm.password.length < 8) return setFormError("Use at least 8 characters for the initial password.");
+    setSaving(true); setFormError("");
+    try {
+      await createAdminUser({ ...createForm, email: createForm.email.trim(), phone: createForm.phone.trim() });
+      setCreateOpen(false);
+      setCreateForm({ firstName: "", lastName: "", email: "", phone: "", role: "USER", password: "" });
+    } catch (error) { setFormError(error instanceof Error ? error.message : "Could not create the user."); }
+    finally { setSaving(false); }
+  };
+
+  const submitAction = async () => {
+    if (!actionUser || !action) return;
+    if (action === "email" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return setFormError("Enter a valid email address.");
+    if (action === "password" && password.length < 8) return setFormError("Use at least 8 characters for the new password.");
+    if (action === "password" && password !== passwordConfirm) return setFormError("Passwords do not match.");
+    setSaving(true); setFormError("");
+    try {
+      if (action === "email") await updateAdminUserEmail(actionUser.id, email.trim().toLowerCase());
+      else await resetAdminUserPassword(actionUser.id, password);
+      setAction(null); setActionUser(null);
+    } catch (error) { setFormError(error instanceof Error ? error.message : "The requested user change failed."); }
+    finally { setSaving(false); }
   };
 
   const filtered = useMemo(() => {
@@ -67,9 +113,8 @@ export function AdminUsers() {
     <div className={styles.wrap}>
       <div>
         <h1 className={styles.h1}>User management</h1>
-        <p className={styles.sub}>
-          Search, filter, inspect, and suspend user accounts.
-        </p>
+        <p className={styles.sub}>Search, filter, inspect, and manage user accounts.</p>
+        <div style={{ marginTop: "var(--space-3)" }}><Button icon={<Plus size={16} />} onClick={() => { setCreateOpen(true); setFormError(""); }}>Add user</Button></div>
       </div>
 
       <Card>
@@ -162,6 +207,8 @@ export function AdminUsers() {
                         >
                           View
                         </Button>
+                        <Button size="sm" variant="ghost" onClick={() => openEmailEditor(u)} icon={<Pencil size={14} />}>Email</Button>
+                        <Button size="sm" variant="secondary" onClick={() => openPasswordReset(u)} icon={<KeyRound size={14} />}>Reset password</Button>
                         {!isSelf &&
                           u.role !== "ADMIN" &&
                           (u.accountStatus === "ACTIVE" ? (
@@ -222,6 +269,31 @@ export function AdminUsers() {
             }
           />
         )}
+      </Modal>
+
+      <Modal open={createOpen} title="Add user" onClose={() => { if (!saving) setCreateOpen(false); }} footer={<><Button variant="ghost" onClick={() => setCreateOpen(false)} disabled={saving}>Cancel</Button><Button onClick={() => void submitCreate()} loading={saving}>Create user</Button></>}>
+        <p style={{ color: "var(--text-muted)", fontSize: 13, marginBottom: "var(--space-4)" }}>New accounts start as unpaid and must follow the normal payment-gating process.</p>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-3)" }}>
+          <Field label="First name"><TextInput value={createForm.firstName} onChange={(event) => setCreateForm((form) => ({ ...form, firstName: event.target.value }))} /></Field>
+          <Field label="Last name"><TextInput value={createForm.lastName} onChange={(event) => setCreateForm((form) => ({ ...form, lastName: event.target.value }))} /></Field>
+        </div>
+        <Field label="Email"><TextInput type="email" value={createForm.email} onChange={(event) => setCreateForm((form) => ({ ...form, email: event.target.value }))} /></Field>
+        <Field label="Phone"><TextInput type="tel" value={createForm.phone} onChange={(event) => setCreateForm((form) => ({ ...form, phone: event.target.value }))} /></Field>
+        <Field label="Role"><SelectInput value={createForm.role} onChange={(event) => setCreateForm((form) => ({ ...form, role: event.target.value as "USER" | "ADMIN" }))}><option value="USER">User</option><option value="ADMIN">Admin</option></SelectInput></Field>
+        <Field label="Initial password" hint="The password is hashed immediately and is never returned."><TextInput type="password" autoComplete="new-password" value={createForm.password} onChange={(event) => setCreateForm((form) => ({ ...form, password: event.target.value }))} /></Field>
+        {formError && <p className={styles.formError} role="alert">{formError}</p>}
+      </Modal>
+
+      <Modal open={!!actionUser && !!action} title={action === "email" ? `Change email for ${actionUser?.name ?? "user"}` : `Reset password for ${actionUser?.name ?? "user"}`} onClose={() => { if (!saving) { setAction(null); setActionUser(null); } }} footer={<><Button variant="ghost" onClick={() => { setAction(null); setActionUser(null); }} disabled={saving}>Cancel</Button><Button variant={action === "password" ? "danger" : "primary"} onClick={() => void submitAction()} loading={saving}>{action === "email" ? "Save email" : "Confirm password reset"}</Button></>}>
+        {action === "email" ? <>
+          <p style={{ color: "var(--text-muted)", fontSize: 13, marginBottom: "var(--space-4)" }}>The address is normalized for login and must not belong to another account.</p>
+          <Field label="New email"><TextInput type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="off" /></Field>
+        </> : <>
+          <p style={{ color: "var(--text-muted)", fontSize: 13, marginBottom: "var(--space-4)" }}>This revokes the user's existing refresh sessions. Confirm the target account before continuing; the password will not be displayed or logged.</p>
+          <Field label="New password"><TextInput type="password" autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} /></Field>
+          <Field label="Confirm new password"><TextInput type="password" autoComplete="new-password" value={passwordConfirm} onChange={(event) => setPasswordConfirm(event.target.value)} /></Field>
+        </>}
+        {formError && <p className={styles.formError} role="alert">{formError}</p>}
       </Modal>
     </div>
   );

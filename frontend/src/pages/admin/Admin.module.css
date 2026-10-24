@@ -12,6 +12,14 @@
   color: var(--text-muted);
   margin-top: 2px;
 }
+.formError {
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--danger-bg);
+  color: var(--danger);
+  font-size: 13px;
+  margin-top: var(--space-3);
+}
 
 .statGrid {
   display: grid;

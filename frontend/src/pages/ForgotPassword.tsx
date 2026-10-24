@@ -65,7 +65,7 @@ export function ForgotPassword() {
                 placeholder="you@example.com"
               />
             </Field>
-            {error && <p role="alert" style={{ color: "var(--danger)", marginBottom: 12 }}>{error}</p>}
+            {error && <p className={styles.formError} role="alert">{error}</p>}
             <Button type="submit" full size="lg" loading={loading}>
               Send reset link
             </Button>

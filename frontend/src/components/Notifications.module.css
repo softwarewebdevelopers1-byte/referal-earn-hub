@@ -1,0 +1,50 @@
+.host {
+  position: fixed;
+  top: calc(var(--space-4) + env(safe-area-inset-top));
+  right: var(--space-4);
+  z-index: 300;
+  width: min(420px, calc(100vw - 32px));
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  pointer-events: none;
+}
+
+.toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  width: 100%;
+  padding: 12px 12px 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--elevated);
+  color: var(--text);
+  box-shadow: var(--shadow-lg);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.toast svg { flex: 0 0 auto; margin-top: 1px; }
+.msg { min-width: 0; overflow-wrap: anywhere; flex: 1; }
+.close {
+  flex: 0 0 auto;
+  display: inline-flex;
+  border: 0;
+  border-radius: var(--radius-sm);
+  padding: 4px;
+  background: transparent;
+  color: var(--text-muted);
+}
+.close:hover { background: var(--surface-hover); color: var(--text); }
+.success { border-color: color-mix(in srgb, var(--success) 35%, var(--border)); background: color-mix(in srgb, var(--success-bg) 70%, var(--elevated)); }
+.success svg { color: var(--success); }
+.error { border-color: color-mix(in srgb, var(--danger) 35%, var(--border)); background: color-mix(in srgb, var(--danger-bg) 70%, var(--elevated)); }
+.error svg { color: var(--danger); }
+.info { border-color: color-mix(in srgb, var(--orange-500) 35%, var(--border)); background: color-mix(in srgb, var(--orange-100) 60%, var(--elevated)); }
+.info svg { color: var(--orange-600); }
+
+@media (max-width: 640px) {
+  .host { top: calc(var(--space-3) + env(safe-area-inset-top)); right: var(--space-3); width: calc(100vw - 24px); }
+}

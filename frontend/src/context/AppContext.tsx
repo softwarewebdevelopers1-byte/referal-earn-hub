@@ -88,6 +88,16 @@ interface AppContextValue {
   requestWithdrawal: (amount: number) => Promise<void>;
   updateProfile: (patch: Partial<Pick<User, "name" | "phone">>) => Promise<void>;
   toggleUserSuspension: (userId: string) => Promise<void>;
+  createAdminUser: (data: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    role: "USER" | "ADMIN";
+    password: string;
+  }) => Promise<void>;
+  updateAdminUserEmail: (userId: string, email: string) => Promise<void>;
+  resetAdminUserPassword: (userId: string, password: string) => Promise<void>;
   isVideoCompleted: (userId: string, videoId: string) => boolean;
   totalsForUser: (userId: string) => {
     referralEarnings: number;
@@ -270,12 +280,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
           adminApi.dashboard(),
           fetchAllPages((page, size) => adminApi.users(page, size)),
           fetchAllPages((page, size) => adminApi.payments(page, size)),
-          fetchAllPages((page, size) => adminApi.transactions(page, size)),
+          adminApi.transactions(0, 20),
         ]);
         setAdminDashboard(dashboard);
         setUsers(adminUsers.map(mapAdminUser));
         setPayments(adminPayments.map((row) => mapPayment(row)));
-        setTransactions(adminTransactions.map((row) => mapTransaction(row)));
+        setTransactions(adminTransactions.content.map((row) => mapTransaction(row)));
         return;
       }
 
@@ -527,6 +537,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
     await loadData();
   }, [loadData, notify, users]);
 
+  const createAdminUser = useCallback(async (data: {
+    firstName: string; lastName: string; email: string; phone: string;
+    role: "USER" | "ADMIN"; password: string;
+  }) => {
+    await adminApi.createUser(data);
+    notify("User created. The account remains unpaid until the normal payment process completes.", "success");
+    await loadData();
+  }, [loadData, notify]);
+
+  const updateAdminUserEmail = useCallback(async (userId: string, email: string) => {
+    await adminApi.updateUserEmail(Number(userId), email);
+    notify("User email updated.", "success");
+    await loadData();
+  }, [loadData, notify]);
+
+  const resetAdminUserPassword = useCallback(async (userId: string, password: string) => {
+    await adminApi.resetUserPassword(Number(userId), password);
+    notify("Password reset. Existing refresh sessions were revoked.", "success");
+  }, [notify]);
+
   const toggleTheme = useCallback(() => setThemeState((value) => value === "light" ? "dark" : "light"), []);
   const setTheme = useCallback((value: "light" | "dark") => setThemeState(value), []);
   const isVideoCompleted = useCallback(
@@ -561,11 +591,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     users, payments, referrals, transactions, completions, videos, currentUser, loading, dataError, platformConfig, adminDashboard, theme, notifications,
     login, logout, register, refreshUser, retryLoad, toggleTheme, setTheme, notify, dismissNotification,
     approvePayment, rejectPayment, completeVideo, requestWithdrawal, updateProfile, toggleUserSuspension,
+    createAdminUser, updateAdminUserEmail, resetAdminUserPassword,
     isVideoCompleted, totalsForUser,
   }), [
     users, payments, referrals, transactions, completions, videos, currentUser, loading, dataError, platformConfig, adminDashboard, theme, notifications,
     login, logout, register, refreshUser, retryLoad, toggleTheme, setTheme, notify, dismissNotification,
     approvePayment, rejectPayment, completeVideo, requestWithdrawal, updateProfile, toggleUserSuspension,
+    createAdminUser, updateAdminUserEmail, resetAdminUserPassword,
     isVideoCompleted, totalsForUser,
   ]);
 

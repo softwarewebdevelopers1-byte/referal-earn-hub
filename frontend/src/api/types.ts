@@ -177,6 +177,18 @@ export interface AdminTransactionRow extends LedgerEntry {
   userName: string;
 }
 
+export interface AdminTransactionSummary {
+  matchingCount: number;
+  matchingAmount: number;
+  pendingCount: number;
+  pendingAmount: number;
+  completedCount: number;
+  completedAmount: number;
+  failedCount: number;
+  failedAmount: number;
+  currency: string;
+}
+
 export interface Paginated<T> {
   content: T[];
   totalElements: number;

@@ -14,17 +14,20 @@ import type {
   AdminUserRow,
   AdminPaymentRow,
   AdminTransactionRow,
+  AdminTransactionSummary,
   Paginated,
 } from "./types";
 
-const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080").replace(/\/$/, "");
+const API_BASE = import.meta.env.VITE_API_BASE_URL.replace(/\/$/, "");
 const TOKEN_KEY = "earnhub_token";
 const SESSION_TOKEN_KEY = "earnhub_session_token";
 const REFRESH_TOKEN_KEY = "earnhub_refresh_token";
 const SESSION_REFRESH_TOKEN_KEY = "earnhub_session_refresh_token";
 
 export function getToken(): string | null {
-  return localStorage.getItem(TOKEN_KEY) ?? sessionStorage.getItem(SESSION_TOKEN_KEY);
+  return (
+    localStorage.getItem(TOKEN_KEY) ?? sessionStorage.getItem(SESSION_TOKEN_KEY)
+  );
 }
 export function setToken(token: string, remember = true) {
   clearToken();
@@ -33,14 +36,24 @@ export function setToken(token: string, remember = true) {
     token,
   );
 }
-export function setAuthTokens(accessToken: string, refreshToken: string, remember = true) {
+export function setAuthTokens(
+  accessToken: string,
+  refreshToken: string,
+  remember = true,
+) {
   clearToken();
   const storage = remember ? localStorage : sessionStorage;
   storage.setItem(remember ? TOKEN_KEY : SESSION_TOKEN_KEY, accessToken);
-  storage.setItem(remember ? REFRESH_TOKEN_KEY : SESSION_REFRESH_TOKEN_KEY, refreshToken);
+  storage.setItem(
+    remember ? REFRESH_TOKEN_KEY : SESSION_REFRESH_TOKEN_KEY,
+    refreshToken,
+  );
 }
 export function getRefreshToken(): string | null {
-  return localStorage.getItem(REFRESH_TOKEN_KEY) ?? sessionStorage.getItem(SESSION_REFRESH_TOKEN_KEY);
+  return (
+    localStorage.getItem(REFRESH_TOKEN_KEY) ??
+    sessionStorage.getItem(SESSION_REFRESH_TOKEN_KEY)
+  );
 }
 export function clearToken() {
   localStorage.removeItem(TOKEN_KEY);
@@ -69,10 +82,13 @@ export { ApiError };
 
 function defaultErrorMessage(status: number) {
   if (status === 401) return "Your session has expired. Please sign in again.";
-  if (status === 403) return "You do not have permission to perform this action.";
+  if (status === 403)
+    return "You do not have permission to perform this action.";
   if (status === 404) return "The requested record could not be found.";
-  if (status === 409) return "This operation conflicts with the current record state.";
-  if (status >= 500) return "The server could not complete the request. Please try again.";
+  if (status === 409)
+    return "This operation conflicts with the current record state.";
+  if (status >= 500)
+    return "The server could not complete the request. Please try again.";
   return "Request failed. Please check the information and try again.";
 }
 
@@ -88,10 +104,14 @@ async function rotateAccessToken(): Promise<boolean> {
   const refreshToken = getRefreshToken();
   if (!refreshToken) return false;
   if (!refreshPromise) {
-    refreshPromise = request<AuthResponse>("/api/auth/refresh", {
-      method: "POST",
-      body: JSON.stringify({ refreshToken }),
-    }, false)
+    refreshPromise = request<AuthResponse>(
+      "/api/auth/refresh",
+      {
+        method: "POST",
+        body: JSON.stringify({ refreshToken }),
+      },
+      false,
+    )
       .then((refreshed) => {
         const accessToken = refreshed.accessToken ?? refreshed.token;
         if (!accessToken || !refreshed.refreshToken) return false;
@@ -107,7 +127,11 @@ async function rotateAccessToken(): Promise<boolean> {
   return refreshPromise;
 }
 
-async function request<T>(path: string, init: RequestInit = {}, allowRefresh = true): Promise<T> {
+async function request<T>(
+  path: string,
+  init: RequestInit = {},
+  allowRefresh = true,
+): Promise<T> {
   const token = getToken();
   const headers: Record<string, string> = {
     ...(init.headers as Record<string, string> | undefined),
@@ -133,7 +157,10 @@ async function request<T>(path: string, init: RequestInit = {}, allowRefresh = t
       signal: init.signal ?? controller.signal,
     });
   } catch (error) {
-    if (timedOut || (error instanceof DOMException && error.name === "AbortError")) {
+    if (
+      timedOut ||
+      (error instanceof DOMException && error.name === "AbortError")
+    ) {
       throw new ApiError(
         "The server took too long to respond. Please try again.",
         "TIMEOUT",
@@ -149,9 +176,18 @@ async function request<T>(path: string, init: RequestInit = {}, allowRefresh = t
     window.clearTimeout(timeoutId);
   }
 
-  const refreshablePath = !["/api/auth/login", "/api/auth/register", "/api/auth/refresh", "/api/auth/logout"]
-    .includes(path);
-  if (res.status === 401 && allowRefresh && refreshablePath && getRefreshToken()) {
+  const refreshablePath = ![
+    "/api/auth/login",
+    "/api/auth/register",
+    "/api/auth/refresh",
+    "/api/auth/logout",
+  ].includes(path);
+  if (
+    res.status === 401 &&
+    allowRefresh &&
+    refreshablePath &&
+    getRefreshToken()
+  ) {
     if (await rotateAccessToken()) {
       return request<T>(path, init, false);
     }
@@ -174,26 +210,43 @@ async function request<T>(path: string, init: RequestInit = {}, allowRefresh = t
 
   if (res.status === 401) {
     clearToken();
-    const isPublicAuthRequest = ["/api/auth/login", "/api/auth/register", "/api/auth/refresh", "/api/auth/logout"].includes(path);
+    const isPublicAuthRequest = [
+      "/api/auth/login",
+      "/api/auth/register",
+      "/api/auth/refresh",
+      "/api/auth/logout",
+    ].includes(path);
     if (token && !isPublicAuthRequest) dispatchUnauthorized();
   }
 
   if (!res.ok) {
-    const objectBody = body && typeof body === "object" ? body as Record<string, unknown> : undefined;
-    const message = typeof objectBody?.message === "string" && objectBody.message.trim()
-      ? objectBody.message
-      : typeof body === "string" && body.trim()
-        ? body
-        : defaultErrorMessage(res.status);
-    const code = res.status === 401
-      ? "UNAUTHORIZED"
-      : typeof objectBody?.code === "string" ? objectBody.code : `HTTP_${res.status}`;
-    const fieldErrors = objectBody?.fieldErrors && typeof objectBody.fieldErrors === "object"
-      ? Object.fromEntries(
-          Object.entries(objectBody.fieldErrors as Record<string, unknown>)
-            .filter(([, value]) => typeof value === "string") as [string, string][],
-        )
-      : undefined;
+    const objectBody =
+      body && typeof body === "object"
+        ? (body as Record<string, unknown>)
+        : undefined;
+    const message =
+      typeof objectBody?.message === "string" && objectBody.message.trim()
+        ? objectBody.message
+        : typeof body === "string" && body.trim()
+          ? body
+          : defaultErrorMessage(res.status);
+    const code =
+      res.status === 401
+        ? "UNAUTHORIZED"
+        : typeof objectBody?.code === "string"
+          ? objectBody.code
+          : `HTTP_${res.status}`;
+    const fieldErrors =
+      objectBody?.fieldErrors && typeof objectBody.fieldErrors === "object"
+        ? Object.fromEntries(
+            Object.entries(
+              objectBody.fieldErrors as Record<string, unknown>,
+            ).filter(([, value]) => typeof value === "string") as [
+              string,
+              string,
+            ][],
+          )
+        : undefined;
     throw new ApiError(message, code, res.status, fieldErrors);
   }
   return body as T;
@@ -221,16 +274,24 @@ export const authApi = {
     }),
 
   refresh: (refreshToken: string) =>
-    request<AuthResponse>("/api/auth/refresh", {
-      method: "POST",
-      body: JSON.stringify({ refreshToken }),
-    }, false),
+    request<AuthResponse>(
+      "/api/auth/refresh",
+      {
+        method: "POST",
+        body: JSON.stringify({ refreshToken }),
+      },
+      false,
+    ),
 
   revokeRefreshToken: (refreshToken: string) =>
-    request<void>("/api/auth/logout", {
-      method: "POST",
-      body: JSON.stringify({ refreshToken }),
-    }, false),
+    request<void>(
+      "/api/auth/logout",
+      {
+        method: "POST",
+        body: JSON.stringify({ refreshToken }),
+      },
+      false,
+    ),
 
   me: () => request<Record<string, unknown>>("/api/auth/me"),
 
@@ -264,7 +325,9 @@ export const paymentApi = {
     }),
   mine: () => request<Payment[]>("/api/payments/mine"),
   status: (reference: string) =>
-    request<PaymentStatusResponse>(`/api/payments/${encodeURIComponent(reference)}/status`),
+    request<PaymentStatusResponse>(
+      `/api/payments/${encodeURIComponent(reference)}/status`,
+    ),
 };
 
 /* ---------- Referrals ---------- */
@@ -335,10 +398,48 @@ export const adminApi = {
     request<Paginated<AdminPaymentRow>>(
       `/api/admin/payments?page=${page}&size=${size}`,
     ),
-  transactions: (page = 0, size = 100) =>
-    request<Paginated<AdminTransactionRow>>(
-      `/api/admin/transactions?page=${page}&size=${size}`,
-    ),
+  transactions: (
+    page = 0,
+    size = 20,
+    filters?: {
+      date?: string;
+      q?: string;
+      type?: string;
+      status?: string;
+    },
+  ) => {
+    const params = new URLSearchParams({
+      page: String(page),
+      size: String(size),
+    });
+    if (filters?.date) params.set("date", filters.date);
+    if (filters?.q) params.set("q", filters.q);
+    if (filters?.type && filters.type !== "ALL")
+      params.set("type", filters.type);
+    if (filters?.status && filters.status !== "ALL")
+      params.set("status", filters.status);
+    return request<Paginated<AdminTransactionRow>>(
+      `/api/admin/transactions?${params}`,
+    );
+  },
+  transactionSummary: (filters?: {
+    date?: string;
+    q?: string;
+    type?: string;
+    status?: string;
+  }) => {
+    const params = new URLSearchParams();
+    if (filters?.date) params.set("date", filters.date);
+    if (filters?.q) params.set("q", filters.q);
+    if (filters?.type && filters.type !== "ALL")
+      params.set("type", filters.type);
+    if (filters?.status && filters.status !== "ALL")
+      params.set("status", filters.status);
+    const query = params.toString();
+    return request<AdminTransactionSummary>(
+      `/api/admin/transactions/summary${query ? `?${query}` : ""}`,
+    );
+  },
   approvePayment: (id: number, reason = "Manual approval") =>
     request<void>(`/api/admin/payments/${id}/approve`, {
       method: "POST",
@@ -356,4 +457,26 @@ export const adminApi = {
     }),
   reactivateUser: (id: number) =>
     request<void>(`/api/admin/users/${id}/reactivate`, { method: "POST" }),
+  createUser: (data: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    role: "USER" | "ADMIN";
+    password: string;
+  }) =>
+    request<AdminUserRow>("/api/admin/users", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  updateUserEmail: (id: number, email: string) =>
+    request<AdminUserRow>(`/api/admin/users/${id}/email`, {
+      method: "PATCH",
+      body: JSON.stringify({ email }),
+    }),
+  resetUserPassword: (id: number, newPassword: string) =>
+    request<void>(`/api/admin/users/${id}/password-reset`, {
+      method: "POST",
+      body: JSON.stringify({ newPassword }),
+    }),
 };

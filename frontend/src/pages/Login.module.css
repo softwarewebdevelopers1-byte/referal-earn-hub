@@ -129,6 +129,14 @@
   font-size: 13px;
   margin-bottom: var(--space-3);
 }
+.formSuccess {
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--success-bg);
+  color: var(--success);
+  font-size: 13px;
+  margin-bottom: var(--space-3);
+}
 
 .footer {
   text-align: center;

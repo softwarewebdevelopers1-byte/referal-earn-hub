@@ -16,26 +16,52 @@ backend/    Java 21 Spring Boot application
 mysql/      official MySQL 8.4 image with a named persistent volume
 ```
 
-Create local configuration without committing secrets:
+Create the single local configuration file without committing secrets:
 
 ```bash
-cp .env.example .env
+cp backend/.env.example backend/.env
 openssl rand -base64 64   # use the result for JWT_SECRET
 ```
 
-Replace the database passwords and `JWT_SECRET` in `.env`. Compose also accepts
-the existing `backend/.env`; when both files exist, `backend/.env` takes
-precedence. Keep PayHero disabled for local testing unless real credentials and
-a publicly reachable HTTPS callback URL are available. The application uses
-the existing `dev` profile only when explicitly selected; its seed credentials
-are not enabled by the default Docker profile.
+Replace the database passwords, `JWT_SECRET`, and first-run admin credentials
+in `backend/.env`. This file is the source of truth for Docker Compose and for
+the backend's admin seeder. Keep PayHero disabled for local testing unless real
+credentials and a publicly reachable HTTPS callback URL are available. The
+application uses the existing `dev` profile only when explicitly selected; its
+seed credentials are not enabled by the default Docker profile.
+
+When the `users` table is empty, startup creates one regular `ADMIN` account
+from `INITIAL_ADMIN_EMAIL` and `INITIAL_ADMIN_PASSWORD`. Replace the example
+values with a unique password; startup refuses the placeholder. Existing users
+are never changed and repeated starts do not create another account. The seed
+does not create a Super Admin and does not run on each request.
+
+For Docker, use `backend/.env` and pass it explicitly to Compose. This is
+important because Compose's service `env_file` controls container variables,
+while `--env-file` also supplies interpolation such as `FRONTEND_PORT`:
+
+```bash
+docker compose --env-file backend/.env up -d --build
+```
+
+For a direct backend run, from `backend/`, export the variables first, for
+example:
+
+```bash
+export INITIAL_ADMIN_EMAIL=admin@example.com
+export INITIAL_ADMIN_PASSWORD='use-a-unique-local-password'
+./mvnw spring-boot:run
+```
+
+Spring Boot also imports the local `backend/.env` file for direct runs. Do not
+commit `backend/.env`.
 
 Build and start all services:
 
 ```bash
-docker compose up -d --build
-docker compose ps
-docker compose logs -f
+docker compose --env-file backend/.env up -d --build
+docker compose --env-file backend/.env ps
+docker compose --env-file backend/.env logs -f
 ```
 
 The application is available at <http://localhost:8080> (or the configured
@@ -54,21 +80,21 @@ are not cached.
 Validate the effective configuration and Nginx itself:
 
 ```bash
-docker compose config
-docker compose exec proxy nginx -t
-docker compose ps
+docker compose --env-file backend/.env config
+docker compose --env-file backend/.env exec proxy nginx -t
+docker compose --env-file backend/.env ps
 ```
 
 Useful operations:
 
 ```bash
-docker compose ps
-docker compose logs -f backend
-docker compose logs -f mysql
-docker compose logs -f proxy
-docker compose restart
-docker compose down
-docker compose up -d --build
+docker compose --env-file backend/.env ps
+docker compose --env-file backend/.env logs -f backend
+docker compose --env-file backend/.env logs -f mysql
+docker compose --env-file backend/.env logs -f proxy
+docker compose --env-file backend/.env restart
+docker compose --env-file backend/.env down
+docker compose --env-file backend/.env up -d --build
 ```
 
 `docker compose down` preserves the named MySQL volume by default.
@@ -78,7 +104,7 @@ do not use it for routine troubleshooting.
 Back up the configured database before destructive maintenance:
 
 ```bash
-docker compose exec -T mysql sh -c \
+docker compose --env-file backend/.env exec -T mysql sh -c \
   'exec mysqldump -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE"' \
   > referralhub-backup.sql
 ```
