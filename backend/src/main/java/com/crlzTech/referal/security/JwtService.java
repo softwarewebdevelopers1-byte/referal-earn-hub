@@ -11,24 +11,53 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Date;
 import java.util.Map;
+import java.util.UUID;
 
 @Service
 public class JwtService {
 
     private final SecretKey key;
-    private final long expirationMs;
+    private final long accessExpirationMs;
+    private final long refreshExpirationMs;
 
     public JwtService(@Value("${app.jwt.secret}") String secret,
-            @Value("${app.jwt.expiration-ms}") long expirationMs) {
+            @Value("${app.jwt.access-expiration-ms}") long accessExpirationMs,
+            @Value("${app.jwt.refresh-expiration-ms}") long refreshExpirationMs) {
         this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
-        this.expirationMs = expirationMs;
+        this.accessExpirationMs = accessExpirationMs;
+        this.refreshExpirationMs = refreshExpirationMs;
     }
 
+    /** Kept as an API-compatible alias for callers that previously requested a JWT. */
     public String generate(Long userId, String email, String role) {
+        return generateAccessToken(userId, email, role);
+    }
+
+    public String generateAccessToken(Long userId, String email, String role) {
+        return generate(userId, email, role, "access", accessExpirationMs);
+    }
+
+    public String generateRefreshToken(Long userId, String email, String role) {
+        return generate(userId, email, role, "refresh", refreshExpirationMs);
+    }
+
+    public boolean isAccessToken(Claims claims) {
+        return "access".equals(claims.get("token_type", String.class));
+    }
+
+    public boolean isRefreshToken(Claims claims) {
+        return "refresh".equals(claims.get("token_type", String.class));
+    }
+
+    private String generate(Long userId, String email, String role, String tokenType, long expirationMs) {
         Instant now = Instant.now();
         return Jwts.builder()
                 .subject(String.valueOf(userId))
-                .claims(Map.of("email", email, "role", role))
+                .claims(Map.of(
+                        "email", email,
+                        "role", role,
+                        "token_type", tokenType))
+                .id(UUID.randomUUID().toString())
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plusMillis(expirationMs)))
                 .signWith(key)

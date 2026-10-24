@@ -2,6 +2,8 @@ server:
   port: ${SERVER_PORT:8080}
 
 spring:
+  config:
+    import: optional:file:.env[.properties]
   application:
     name: earnhub
   datasource:
@@ -29,7 +31,8 @@ spring:
 app:
   jwt:
     secret: ${JWT_SECRET:change-me-to-a-64-char-random-string-in-production-change-me}
-    expiration-ms: ${JWT_EXPIRATION_MS:86400000}
+    access-expiration-ms: ${JWT_ACCESS_EXPIRATION_MS:${JWT_EXPIRATION_MS:900000}}
+    refresh-expiration-ms: ${JWT_REFRESH_EXPIRATION_MS:2592000000}
   cors:
     allowed-origins: ${CORS_ORIGINS:http://localhost:5173}
   frontend:
@@ -38,17 +41,16 @@ app:
     commission-amount: ${REFERRAL_COMMISSION:30.00}
     first-withdrawal-threshold: ${WITHDRAWAL_THRESHOLD:100}
   payment:
-    activation-amount: ${ACTIVATION_AMOUNT:500.00}
+    activation-amount: ${ACTIVATION_AMOUNT:5.00}
     currency: KES
     payhero:
       enabled: ${PAYHERO_ENABLED:true}
       api-base-url: ${PAYHERO_API_BASE:https://backend.payhero.co.ke/api/v2}
-      stk-push-path: ${PAYHERO_STK_PATH:/payments/initiate-stk-push}
-      status-path: ${PAYHERO_STATUS_PATH:/payments/status}
+      stk-push-path: ${PAYHERO_STK_PATH:/payments}
       username: ${PAYHERO_USERNAME:}
       password: ${PAYHERO_PASSWORD:}
       channel-id: ${PAYHERO_CHANNEL_ID:}
-      callback-url: ${PAYHERO_CALLBACK_URL:http://localhost:8080/api/payments/callback}
+      callback-url: ${PAYHERO_CALLBACK_URL:http://localhost:8080/api/payments/payhero/callback}
       b2c-enabled: false
   video:
     default-reward: ${VIDEO_DEFAULT_REWARD:10.00}

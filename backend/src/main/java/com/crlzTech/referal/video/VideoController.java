@@ -1,11 +1,13 @@
 package com.crlzTech.referal.video;
 
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.access.prepost.PreAuthorize;
 import java.util.List;
 import java.util.Map;
 
 @RestController
 @RequestMapping("/api/videos")
+@PreAuthorize("@paidAccessGuard.check(authentication)")
 public class VideoController {
 
     private final VideoService videoService;

@@ -24,7 +24,29 @@ public class Payment {
     @Column(name = "external_reference", unique = true, length = 120)
     private String externalReference;
 
-    @Column(name = "mpesa_reference", length = 60)
+    /** Provider-generated reference returned when the STK request is queued. */
+    @Column(name = "provider_reference", unique = true, length = 120)
+    private String providerReference;
+
+    @Column(name = "checkout_request_id", length = 120)
+    private String checkoutRequestId;
+
+    @Column(name = "merchant_request_id", length = 120)
+    private String merchantRequestId;
+
+    @Column(name = "initiated_phone", length = 30)
+    private String initiatedPhone;
+
+    @Column(name = "provider_phone", length = 30)
+    private String providerPhone;
+
+    @Column(name = "provider_result_code")
+    private Integer providerResultCode;
+
+    @Column(name = "provider_result_description", length = 500)
+    private String providerResultDescription;
+
+    @Column(name = "mpesa_reference", unique = true, length = 60)
     private String mpesaReference;
 
     @Column(nullable = false, precision = 12, scale = 2)
@@ -55,6 +77,12 @@ public class Payment {
 
     @Column(name = "raw_callback", columnDefinition = "TEXT")
     private String rawCallback;
+
+    @Column(name = "callback_received_at")
+    private Instant callbackReceivedAt;
+
+    @Column(name = "payment_completed_at")
+    private Instant paymentCompletedAt;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
@@ -91,6 +119,62 @@ public class Payment {
 
     public void setExternalReference(String v) {
         this.externalReference = v;
+    }
+
+    public String getProviderReference() {
+        return providerReference;
+    }
+
+    public void setProviderReference(String v) {
+        this.providerReference = v;
+    }
+
+    public String getCheckoutRequestId() {
+        return checkoutRequestId;
+    }
+
+    public void setCheckoutRequestId(String v) {
+        this.checkoutRequestId = v;
+    }
+
+    public String getMerchantRequestId() {
+        return merchantRequestId;
+    }
+
+    public void setMerchantRequestId(String v) {
+        this.merchantRequestId = v;
+    }
+
+    public String getInitiatedPhone() {
+        return initiatedPhone;
+    }
+
+    public void setInitiatedPhone(String v) {
+        this.initiatedPhone = v;
+    }
+
+    public String getProviderPhone() {
+        return providerPhone;
+    }
+
+    public void setProviderPhone(String v) {
+        this.providerPhone = v;
+    }
+
+    public Integer getProviderResultCode() {
+        return providerResultCode;
+    }
+
+    public void setProviderResultCode(Integer v) {
+        this.providerResultCode = v;
+    }
+
+    public String getProviderResultDescription() {
+        return providerResultDescription;
+    }
+
+    public void setProviderResultDescription(String v) {
+        this.providerResultDescription = v;
     }
 
     public String getMpesaReference() {
@@ -171,6 +255,22 @@ public class Payment {
 
     public void setRawCallback(String v) {
         this.rawCallback = v;
+    }
+
+    public Instant getCallbackReceivedAt() {
+        return callbackReceivedAt;
+    }
+
+    public void setCallbackReceivedAt(Instant v) {
+        this.callbackReceivedAt = v;
+    }
+
+    public Instant getPaymentCompletedAt() {
+        return paymentCompletedAt;
+    }
+
+    public void setPaymentCompletedAt(Instant v) {
+        this.paymentCompletedAt = v;
     }
 
     public Instant getCreatedAt() {

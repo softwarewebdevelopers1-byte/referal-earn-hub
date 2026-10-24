@@ -4,12 +4,14 @@ spring:
     properties:
       hibernate:
         format_sql: true
-
 app:
   payment:
     payhero:
       enabled: false   # Dev mode: no live PayHero calls
-app:
   dev:
-    admin-email: ${DEV_ADMIN_EMAIL:admin@example.com}
-    admin-password: ${DEV_ADMIN_PASSWORD:ChangeMe123!}
+    seed-initial-users: ${SEED_INITIAL_USERS:true}
+    admin-email: ${DEV_ADMIN_EMAIL:earn.hub@gmail.com}
+    admin-password: ${DEV_ADMIN_PASSWORD:s0l!du$er}
+    referral-email: ${DEV_REFERRAL_EMAIL:referrer@example.com}
+    referral-password: ${DEV_REFERRAL_PASSWORD:ChangeMe123!}
+    referral-phone: ${DEV_REFERRAL_PHONE:+254700000001}

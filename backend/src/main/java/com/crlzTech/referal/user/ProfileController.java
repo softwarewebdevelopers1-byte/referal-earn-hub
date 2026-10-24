@@ -1,6 +1,7 @@
 package com.crlzTech.referal.user;
 
 import com.crlzTech.referal.security.CurrentUser;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -35,7 +36,7 @@ public class ProfileController {
     }
 
     @PatchMapping
-    public Map<String, Object> update(@RequestBody UpdateProfileRequest req) {
+    public Map<String, Object> update(@Valid @RequestBody UpdateProfileRequest req) {
         User u = CurrentUser.require();
         u.setFirstName(req.firstName().trim());
         u.setLastName(req.lastName().trim());

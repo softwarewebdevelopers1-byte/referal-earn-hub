@@ -1,0 +1,109 @@
+services:
+  mysql:
+    image: mysql:8.4.7
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-referralhub}
+      MYSQL_USER: ${MYSQL_USER:-referal_app}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in .env}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in .env}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - app_network
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          mysql --protocol=TCP -h 127.0.0.1
+          -u"$${MYSQL_USER}" -p"$${MYSQL_PASSWORD}"
+          "$${MYSQL_DATABASE}" -e 'SELECT 1' >/dev/null 2>&1
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    init: true
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-docker}
+      SERVER_ADDRESS: 0.0.0.0
+      SERVER_PORT: ${SERVER_PORT:-8080}
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: ${MYSQL_DATABASE:-referralhub}
+      DB_USER: ${MYSQL_USER:-referal_app}
+      DB_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in .env}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      JWT_ACCESS_EXPIRATION_MS: ${JWT_ACCESS_EXPIRATION_MS:-900000}
+      JWT_REFRESH_EXPIRATION_MS: ${JWT_REFRESH_EXPIRATION_MS:-2592000000}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080}
+      FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:-http://localhost:8080}
+      REFERRAL_COMMISSION: ${REFERRAL_COMMISSION:-30.00}
+      WITHDRAWAL_THRESHOLD: ${WITHDRAWAL_THRESHOLD:-100}
+      ACTIVATION_AMOUNT: ${ACTIVATION_AMOUNT:-5.00}
+      VIDEO_DEFAULT_REWARD: ${VIDEO_DEFAULT_REWARD:-10.00}
+      PAYHERO_ENABLED: ${PAYHERO_ENABLED:-false}
+      PAYHERO_API_BASE: ${PAYHERO_API_BASE:-https://backend.payhero.co.ke/api/v2}
+      PAYHERO_STK_PATH: ${PAYHERO_STK_PATH:-/payments}
+      PAYHERO_USERNAME: ${PAYHERO_USERNAME:-}
+      PAYHERO_PASSWORD: ${PAYHERO_PASSWORD:-}
+      PAYHERO_CHANNEL_ID: ${PAYHERO_CHANNEL_ID:-}
+      PAYHERO_CALLBACK_URL: ${PAYHERO_CALLBACK_URL:-http://localhost:8000/api/payments/payhero/callback}
+      SEED_INITIAL_USERS: ${SEED_INITIAL_USERS:-false}
+      DEV_ADMIN_EMAIL: ${DEV_ADMIN_EMAIL:-}
+      DEV_ADMIN_PASSWORD: ${DEV_ADMIN_PASSWORD:-}
+      DEV_REFERRAL_EMAIL: ${DEV_REFERRAL_EMAIL:-}
+      DEV_REFERRAL_PASSWORD: ${DEV_REFERRAL_PASSWORD:-}
+      DEV_REFERRAL_PHONE: ${DEV_REFERRAL_PHONE:-}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${BACKEND_PORT:-8000}:8080"
+    networks:
+      - app_network
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          curl --fail --silent http://127.0.0.1:8080/actuator/health
+          | grep -q '"status":"UP"'
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-}
+    restart: unless-stopped
+    init: true
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${FRONTEND_PORT:-8080}:80"
+    networks:
+      - app_network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+
+networks:
+  app_network:
+    driver: bridge
+
+volumes:
+  mysql_data:
+    name: referral-platform-mysql-data

@@ -2,6 +2,9 @@ package com.crlzTech.referal.withdrawal;
 
 import com.crlzTech.referal.common.enums.WithdrawalStatus;
 import com.crlzTech.referal.referral.ReferralEarningRepository;
+import com.crlzTech.referal.common.enums.LedgerStatus;
+import com.crlzTech.referal.common.enums.LedgerType;
+import com.crlzTech.referal.earnings.LedgerEntryRepository;
 import com.crlzTech.referal.security.CurrentUser;
 import com.crlzTech.referal.user.User;
 import com.crlzTech.referal.withdrawal.dto.WithdrawalResponse;
@@ -9,20 +12,25 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+
 @Service
 public class WithdrawalService {
 
     private final ReferralEarningRepository referralEarningRepository;
     private final WithdrawalRequestRepository withdrawalRequestRepository;
+    private final LedgerEntryRepository ledgerEntryRepository;
     private final int threshold;
     private final boolean b2cEnabled;
 
     public WithdrawalService(ReferralEarningRepository referralEarningRepository,
             WithdrawalRequestRepository withdrawalRequestRepository,
+            LedgerEntryRepository ledgerEntryRepository,
             @Value("${app.referral.first-withdrawal-threshold}") int threshold,
             @Value("${app.payment.payhero.b2c-enabled:false}") boolean b2cEnabled) {
         this.referralEarningRepository = referralEarningRepository;
         this.withdrawalRequestRepository = withdrawalRequestRepository;
+        this.ledgerEntryRepository = ledgerEntryRepository;
         this.threshold = threshold;
         this.b2cEnabled = b2cEnabled;
     }
@@ -49,8 +57,14 @@ public class WithdrawalService {
     }
 
     @Transactional
-    public WithdrawalResponse requestWithdrawal() {
+    public WithdrawalResponse requestWithdrawal(BigDecimal amount) {
         User user = CurrentUser.require();
+        BigDecimal available = availableBalance(user.getId());
+        if (amount.compareTo(available) > 0) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "Requested amount exceeds your available balance");
+        }
         long successful = referralEarningRepository.countByReferrerId(user.getId());
         long remaining = Math.max(0, threshold - successful);
 
@@ -67,11 +81,11 @@ public class WithdrawalService {
         // financial transaction)
         WithdrawalRequest request = new WithdrawalRequest();
         request.setUser(user);
-        request.setAmount(java.math.BigDecimal.ZERO); // no payable amount is created
+        request.setAmount(amount);
         request.setCurrency("KES");
         request.setStatus(WithdrawalStatus.ADMIN_CONTACT_REQUIRED);
         request.setSuccessfulReferralsAtRequest((int) successful);
-        request.setNote("B2C disabled; user requested withdrawal assistance.");
+        request.setNote("B2C disabled; user requested withdrawal assistance for KES " + amount + ".");
         withdrawalRequestRepository.save(request);
 
         return new WithdrawalResponse(
@@ -84,5 +98,19 @@ public class WithdrawalService {
 
     public boolean isB2cEnabled() {
         return b2cEnabled;
+    }
+
+    private BigDecimal availableBalance(Long userId) {
+        BigDecimal referral = safe(ledgerEntryRepository.sumByUserAndStatusAndType(
+                userId, LedgerStatus.COMPLETED, LedgerType.REFERRAL_REWARD));
+        BigDecimal video = safe(ledgerEntryRepository.sumByUserAndStatusAndType(
+                userId, LedgerStatus.COMPLETED, LedgerType.VIDEO_REWARD));
+        BigDecimal withdrawn = safe(ledgerEntryRepository.sumByUserAndStatusAndType(
+                userId, LedgerStatus.COMPLETED, LedgerType.WITHDRAWAL));
+        return referral.add(video).subtract(withdrawn).max(BigDecimal.ZERO);
+    }
+
+    private static BigDecimal safe(BigDecimal value) {
+        return value == null ? BigDecimal.ZERO : value;
     }
 }

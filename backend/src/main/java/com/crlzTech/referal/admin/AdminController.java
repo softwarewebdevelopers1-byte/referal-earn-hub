@@ -40,6 +40,20 @@ public class AdminController {
         return adminService.searchUsers(q, role, status, page, size);
     }
 
+    @GetMapping("/payments")
+    public Page<com.crlzTech.referal.admin.dto.AdminPaymentRow> payments(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return adminService.searchPayments(page, size);
+    }
+
+    @GetMapping("/transactions")
+    public Page<com.crlzTech.referal.admin.dto.AdminTransactionRow> transactions(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return adminService.searchTransactions(page, size);
+    }
+
     @PostMapping("/payments/{id}/approve")
     public void approve(@PathVariable Long id, @RequestBody(required = false) AdminActionRequest req) {
         paymentService.approveManually(id, req == null ? "Manual approval" : req.reason());
@@ -57,17 +71,17 @@ public class AdminController {
             throw new org.springframework.web.server.ResponseStatusException(
                     org.springframework.http.HttpStatus.CONFLICT, "Cannot suspend your own account");
         }
-        userRepository.findById(id).ifPresent(u -> {
-            u.setAccountStatus(com.crlzTech.referal.common.enums.AccountStatus.SUSPENDED);
-            userRepository.save(u);
-        });
+        var user = userRepository.findById(id).orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.NOT_FOUND, "User not found"));
+        user.setAccountStatus(com.crlzTech.referal.common.enums.AccountStatus.SUSPENDED);
+        userRepository.save(user);
     }
 
     @PostMapping("/users/{id}/reactivate")
     public void reactivate(@PathVariable Long id) {
-        userRepository.findById(id).ifPresent(u -> {
-            u.setAccountStatus(com.crlzTech.referal.common.enums.AccountStatus.ACTIVE);
-            userRepository.save(u);
-        });
+        var user = userRepository.findById(id).orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.NOT_FOUND, "User not found"));
+        user.setAccountStatus(com.crlzTech.referal.common.enums.AccountStatus.ACTIVE);
+        userRepository.save(user);
     }
 }

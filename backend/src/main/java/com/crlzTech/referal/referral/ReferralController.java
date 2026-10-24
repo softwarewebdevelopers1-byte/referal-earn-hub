@@ -4,9 +4,11 @@ import com.crlzTech.referal.referral.dto.ReferralStatsResponse;
 import com.crlzTech.referal.referral.dto.SuccessfulReferralDto;
 import org.springframework.data.domain.Page;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 @RestController
 @RequestMapping("/api/referrals")
+@PreAuthorize("@paidAccessGuard.check(authentication)")
 public class ReferralController {
 
     private final ReferralService referralService;

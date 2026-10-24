@@ -11,6 +11,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -30,14 +31,13 @@ public class ReferralService {
         this.frontendBaseUrl = frontendBaseUrl;
     }
 
+    @Transactional(readOnly = true)
     public ReferralStatsResponse myStats() {
         User user = CurrentUser.require();
         long successful = referralEarningRepository.countByReferrerId(user.getId());
         BigDecimal earnings = referralEarningRepository.sumAmountByReferrerId(user.getId());
 
-        long totalRegistered = userRepository.findAll().stream()
-                .filter(u -> u.getReferredBy() != null && u.getReferredBy().getId().equals(user.getId()))
-                .count();
+        long totalRegistered = userRepository.countByReferredById(user.getId());
         long pending = Math.max(0, totalRegistered - successful);
 
         return new ReferralStatsResponse(
@@ -49,6 +49,7 @@ public class ReferralService {
                 earnings != null ? earnings : BigDecimal.ZERO);
     }
 
+    @Transactional(readOnly = true)
     public Page<SuccessfulReferralDto> mySuccessfulReferrals(int page, int size) {
         User user = CurrentUser.require();
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));

@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -33,12 +34,29 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http,
             @Value("${app.cors.allowed-origins}") String allowedOrigins) throws Exception {
         http
+                // This API authenticates with an Authorization: Bearer header. Browsers
+                // do not attach that header cross-site, so CSRF protection is not needed.
+                // Do not move JWTs into cookies without restoring CSRF protection.
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsSource(allowedOrigins)))
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .exceptionHandling(exceptions -> exceptions
+                        .authenticationEntryPoint((request, response, exception) -> writeSecurityError(
+                                response, HttpStatus.UNAUTHORIZED.value(),
+                                "Authentication is required"))
+                        .accessDeniedHandler((request, response, exception) -> writeSecurityError(
+                                response, HttpStatus.FORBIDDEN.value(),
+                                "You do not have permission to perform this action")))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
-                                "/api/auth/**",
+                                "/api/auth/register",
+                                "/api/auth/login",
+                                "/api/auth/forgot-password",
+                                "/api/auth/reset-password",
+                                "/api/config",
+                                "/api/auth/refresh",
+                                "/api/auth/logout",
+                                "/api/payments/payhero/callback",
                                 "/api/payments/callback",
                                 "/actuator/health",
                                 "/v3/api-docs/**",
@@ -58,10 +76,17 @@ public class SecurityConfig {
         cfg.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         cfg.setAllowedHeaders(List.of("*"));
         cfg.setExposedHeaders(List.of("Content-Disposition"));
-        cfg.setAllowCredentials(true);
+        cfg.setAllowCredentials(false);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", cfg);
         return source;
+    }
+
+    private static void writeSecurityError(jakarta.servlet.http.HttpServletResponse response,
+            int status, String message) throws java.io.IOException {
+        response.setStatus(status);
+        response.setContentType("application/json");
+        response.getWriter().write("{\"status\":" + status + ",\"message\":\"" + message + "\"}");
     }
 
     @Bean

@@ -9,6 +9,9 @@ public record PaymentResponse(
         Long id,
         String internalReference,
         String externalReference,
+        String providerReference,
+        String checkoutRequestId,
+        String merchantRequestId,
         String mpesaReference,
         BigDecimal amount,
         String currency,
@@ -16,11 +19,14 @@ public record PaymentResponse(
         PaymentStatus status,
         String rejectionReason,
         Instant createdAt,
-        Instant updatedAt) {
+        Instant updatedAt,
+        Instant callbackReceivedAt,
+        Instant paymentCompletedAt) {
     public static PaymentResponse from(Payment p) {
         return new PaymentResponse(
-                p.getId(), p.getInternalReference(), p.getExternalReference(), p.getMpesaReference(),
+                p.getId(), p.getInternalReference(), p.getExternalReference(), p.getProviderReference(),
+                p.getCheckoutRequestId(), p.getMerchantRequestId(), p.getMpesaReference(),
                 p.getAmount(), p.getCurrency(), p.getMethod(), p.getStatus(), p.getRejectionReason(),
-                p.getCreatedAt(), p.getUpdatedAt());
+                p.getCreatedAt(), p.getUpdatedAt(), p.getCallbackReceivedAt(), p.getPaymentCompletedAt());
     }
 }

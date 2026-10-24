@@ -29,19 +29,36 @@ public class AuthController {
         return authService.login(req);
     }
 
+    @PostMapping("/refresh")
+    public AuthResponse refresh(@Valid @RequestBody RefreshTokenRequest req) {
+        return authService.refresh(req);
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(@RequestBody(required = false) RefreshTokenRequest req) {
+        if (req != null && req.refreshToken() != null && !req.refreshToken().isBlank()) {
+            authService.logout(req.refreshToken());
+        }
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping("/me")
     public Map<String, Object> me() {
         User u = CurrentUser.require();
-        return Map.of(
-                "id", u.getId(),
-                "firstName", u.getFirstName(),
-                "lastName", u.getLastName(),
-                "email", u.getEmail(),
-                "phone", u.getPhone(),
-                "role", u.getRole().name(),
-                "paymentStatus", u.getPaymentStatus().name(),
-                "referralCode", u.getReferralCode(),
-                "createdAt", u.getCreatedAt());
+        return Map.ofEntries(
+                Map.entry("id", u.getId()),
+                Map.entry("firstName", u.getFirstName()),
+                Map.entry("lastName", u.getLastName()),
+                Map.entry("email", u.getEmail()),
+                Map.entry("phone", u.getPhone()),
+                Map.entry("role", u.getRole().name()),
+                Map.entry("paymentStatus", u.getPaymentStatus().name()),
+                Map.entry("accountStatus", u.getAccountStatus().name()),
+                Map.entry("accountActivated", u.getPaymentStatus() == com.crlzTech.referal.common.enums.PaymentStatus.SUCCESS),
+                Map.entry("canAccessDashboard", u.getPaymentStatus() == com.crlzTech.referal.common.enums.PaymentStatus.SUCCESS
+                        && u.getAccountStatus() == com.crlzTech.referal.common.enums.AccountStatus.ACTIVE),
+                Map.entry("referralCode", u.getReferralCode()),
+                Map.entry("createdAt", u.getCreatedAt()));
     }
 
     @PostMapping("/forgot-password")

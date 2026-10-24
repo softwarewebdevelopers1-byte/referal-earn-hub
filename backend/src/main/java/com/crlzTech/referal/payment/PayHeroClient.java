@@ -20,15 +20,19 @@ import java.util.Map;
  * Payload fields: phone_number, amount, channel_id, external_reference,
  * provider, callback_url.
  *
- * FALLBACK: Legacy STK endpoint (payherokenya.com/sps/portal/app/stk.php)
- * using api_key + username form fields (official GitBook docs).
+ * The published callback contract does not document a signed webhook or shared
+ * secret. Callback verification is therefore performed against the stored
+ * payment reference, amount, and provider identifiers in PaymentService.
  *
- * Configure which endpoint to use via app.payment.payhero.api-base-url.
  * If app.payment.payhero.enabled=false, calls are skipped and a mock reference
  * is generated for local dev only. NEVER run with enabled=false in production.
  */
 @Component
 public class PayHeroClient {
+
+    public record InitiationResult(String providerReference, String checkoutRequestId,
+            String merchantRequestId) {
+    }
 
     private final RestTemplate restTemplate;
     private final ObjectMapper mapper = new ObjectMapper();
@@ -65,26 +69,42 @@ public class PayHeroClient {
      * Returns an external reference returned by PayHero, or a mock ref if disabled.
      */
     public String initiateStkPush(String phone, BigDecimal amount, String externalReference) {
-        if (!enabled) {
-            return "MOCK-" + externalReference;
-        }
-
-        if (username != null && !username.isBlank() && apiBaseUrl != null && apiBaseUrl.contains("/v2")) {
-            return initiateV2(phone, amount, externalReference);
-        }
-        return initiateLegacy(phone, amount, externalReference);
+        return initiateStkPushDetails(phone, amount, externalReference).providerReference();
     }
 
-    private String initiateV2(String phone, BigDecimal amount, String externalReference) {
+    /**
+     * Initiates the documented v2 request and retains the identifiers returned by
+     * PayHero so a callback can be correlated to the exact STK request.
+     */
+    public InitiationResult initiateStkPushDetails(String phone, BigDecimal amount, String externalReference) {
+        if (!enabled) {
+            return new InitiationResult("MOCK-" + externalReference, null, null);
+        }
+
+        if (username == null || username.isBlank() || password == null || password.isBlank()
+                || apiBaseUrl == null || !apiBaseUrl.contains("/v2")) {
+            throw new PaymentProviderException("PayHero v2 credentials or API base URL are not configured");
+        }
+        return initiateV2(phone, amount, externalReference);
+    }
+
+    private InitiationResult initiateV2(String phone, BigDecimal amount, String externalReference) {
         try {
             String normalizedPhone = phone.replaceAll("[^0-9]", "");
             if (normalizedPhone.startsWith("0"))
                 normalizedPhone = "254" + normalizedPhone.substring(1);
 
+            int requestAmount;
+            try {
+                requestAmount = amount.intValueExact();
+            } catch (ArithmeticException exception) {
+                throw new PaymentProviderException("PayHero requires a whole-number KES amount", exception);
+            }
+
             Map<String, Object> body = Map.of(
                     "phone_number", normalizedPhone,
-                    "amount", amount,
-                    "channel_id", channelId,
+                    "amount", requestAmount,
+                    "channel_id", requiredChannelId(),
                     "external_reference", externalReference,
                     "provider", "m-pesa",
                     "callback_url", callbackUrl);
@@ -98,9 +118,12 @@ public class PayHeroClient {
 
             HttpEntity<Map<String, Object>> req = new HttpEntity<>(body, headers);
             ResponseEntity<String> res = restTemplate.exchange(
-                    apiBaseUrl + stkPath, HttpMethod.POST, req, String.class);
+                    apiBaseUrl + effectiveStkPath(), HttpMethod.POST, req, String.class);
 
             JsonNode node = mapper.readTree(res.getBody());
+            if (node != null && node.has("success") && !node.path("success").asBoolean()) {
+                throw new PaymentProviderException("PayHero rejected the STK request");
+            }
             // PayHero v2 typically returns { "success": true, "reference": "...", ... } or
             // similar
             JsonNode ref = node.get("reference");
@@ -108,56 +131,44 @@ public class PayHeroClient {
                 ref = node.path("data").get("reference");
             if (ref == null)
                 ref = node.get("external_reference");
-            return ref != null ? ref.asText() : externalReference;
+            if (ref == null || ref.asText().isBlank()) {
+                throw new PaymentProviderException("PayHero did not return a payment reference");
+            }
+            return new InitiationResult(
+                    ref.asText(),
+                    firstText(node, "CheckoutRequestID", "checkout_request_id"),
+                    firstText(node, "MerchantRequestID", "merchant_request_id"));
+        } catch (PaymentProviderException e) {
+            throw e;
         } catch (Exception e) {
-            throw new RuntimeException("PayHero STK initiation failed: " + e.getMessage(), e);
+            throw new PaymentProviderException("PayHero STK initiation failed", e);
         }
     }
 
-    private String initiateLegacy(String phone, BigDecimal amount, String externalReference) {
+    private int requiredChannelId() {
         try {
-            String url = "https://payherokenya.com/sps/portal/app/stk.php";
-            String form = "api_key=" + enc(legacyApiKey)
-                    + "&username=" + enc(username)
-                    + "&amount=" + amount
-                    + "&phone=" + enc(phone)
-                    + "&user_reference=" + enc(externalReference);
-
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
-            HttpEntity<String> req = new HttpEntity<>(form, headers);
-
-            ResponseEntity<String> res = restTemplate.exchange(url, HttpMethod.POST, req, String.class);
-            // Legacy returns
-            // {"status":true,"response":{"Status":"Success","Message":"..."}}
-            // No transaction reference is returned by this endpoint in the documented
-            // response,
-            // so we return the internal reference. Match callbacks by user_reference.
-            return externalReference;
-        } catch (Exception e) {
-            throw new RuntimeException("PayHero legacy STK initiation failed: " + e.getMessage(), e);
+            return Integer.parseInt(channelId == null ? "" : channelId.trim());
+        } catch (NumberFormatException exception) {
+            throw new PaymentProviderException("PayHero channel ID is not configured correctly", exception);
         }
     }
 
-    private static String enc(String v) {
-        return java.net.URLEncoder.encode(v == null ? "" : v, StandardCharsets.UTF_8);
+    private static String firstText(JsonNode node, String... fields) {
+        for (String field : fields) {
+            JsonNode value = node == null ? null : node.get(field);
+            if (value != null && !value.isNull() && !value.asText().isBlank()) {
+                return value.asText();
+            }
+        }
+        return null;
     }
 
-    public String checkStatus(String externalReference) {
-        if (!enabled)
-            return "MOCK";
-        try {
-            String auth = Base64.getEncoder().encodeToString(
-                    (username + ":" + password).getBytes(StandardCharsets.UTF_8));
-            HttpHeaders headers = new HttpHeaders();
-            headers.set("Authorization", "Basic " + auth);
-            HttpEntity<Void> req = new HttpEntity<>(headers);
-            ResponseEntity<String> res = restTemplate.exchange(
-                    apiBaseUrl + "/payments/status?external_reference=" + externalReference,
-                    HttpMethod.GET, req, String.class);
-            return res.getBody();
-        } catch (Exception e) {
-            return "ERROR: " + e.getMessage();
-        }
+    private String effectiveStkPath() {
+        // Older configuration used /payments/initiate-stk-push. PayHero's current
+        // v2 endpoint is /payments; normalize the old default automatically.
+        return stkPath == null || stkPath.isBlank() || "/payments/initiate-stk-push".equals(stkPath)
+                ? "/payments"
+                : stkPath;
     }
+
 }

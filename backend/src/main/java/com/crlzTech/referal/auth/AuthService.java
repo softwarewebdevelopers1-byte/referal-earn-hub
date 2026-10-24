@@ -5,6 +5,7 @@ import com.crlzTech.referal.common.enums.PaymentStatus;
 import com.crlzTech.referal.security.JwtService;
 import com.crlzTech.referal.user.User;
 import com.crlzTech.referal.user.UserRepository;
+import io.jsonwebtoken.Claims;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -25,6 +26,7 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final RefreshTokenRepository refreshTokenRepository;
     private final PasswordResetTokenRepository resetRepo;
     private final String frontendBaseUrl;
 
@@ -32,11 +34,13 @@ public class AuthService {
             PasswordEncoder passwordEncoder,
             JwtService jwtService,
             PasswordResetTokenRepository resetRepo,
+            RefreshTokenRepository refreshTokenRepository,
             @Value("${app.frontend.base-url}") String frontendBaseUrl) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.resetRepo = resetRepo;
+        this.refreshTokenRepository = refreshTokenRepository;
         this.frontendBaseUrl = frontendBaseUrl;
     }
 
@@ -67,10 +71,10 @@ public class AuthService {
 
         user = userRepository.save(user);
 
-        String token = jwtService.generate(user.getId(), user.getEmail(), user.getRole().name());
-        return toResponse(token, user);
+        return issueTokens(user);
     }
 
+    @Transactional
     public AuthResponse login(LoginRequest req) {
         User user = userRepository.findByEmailIgnoreCase(req.email().trim())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials"));
@@ -80,8 +84,51 @@ public class AuthService {
         if (user.getAccountStatus() != com.crlzTech.referal.common.enums.AccountStatus.ACTIVE) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Account suspended");
         }
-        String token = jwtService.generate(user.getId(), user.getEmail(), user.getRole().name());
-        return toResponse(token, user);
+        return issueTokens(user);
+    }
+
+    @Transactional
+    public AuthResponse refresh(RefreshTokenRequest req) {
+        Claims claims;
+        try {
+            claims = jwtService.parse(req.refreshToken());
+        } catch (RuntimeException ex) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid or expired refresh token");
+        }
+        if (!jwtService.isRefreshToken(claims)) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid refresh token");
+        }
+
+        RefreshToken stored = refreshTokenRepository.findByTokenHashForUpdate(sha256(req.refreshToken()))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED,
+                        "Invalid or expired refresh token"));
+        Instant now = Instant.now();
+        if (stored.getRevokedAt() != null || !stored.getExpiresAt().isAfter(now)) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid or expired refresh token");
+        }
+
+        User user = stored.getUser();
+        if (user.getAccountStatus() != com.crlzTech.referal.common.enums.AccountStatus.ACTIVE) {
+            stored.setRevokedAt(now);
+            refreshTokenRepository.save(stored);
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Account suspended");
+        }
+
+        AuthResponse response = issueTokens(user);
+        stored.setRevokedAt(now);
+        stored.setReplacedByHash(sha256(response.refreshToken()));
+        refreshTokenRepository.save(stored);
+        return response;
+    }
+
+    @Transactional
+    public void logout(String refreshToken) {
+        refreshTokenRepository.findByTokenHashForUpdate(sha256(refreshToken)).ifPresent(token -> {
+            if (token.getRevokedAt() == null) {
+                token.setRevokedAt(Instant.now());
+                refreshTokenRepository.save(token);
+            }
+        });
     }
 
     @Transactional
@@ -138,8 +185,24 @@ public class AuthService {
         }
     }
 
-    private AuthResponse toResponse(String token, User u) {
-        return new AuthResponse(token, u.getId(), u.getFirstName(), u.getLastName(),
-                u.getEmail(), u.getRole().name(), u.getPaymentStatus().name(), u.getReferralCode());
+    private AuthResponse issueTokens(User user) {
+        String accessToken = jwtService.generateAccessToken(user.getId(), user.getEmail(), user.getRole().name());
+        String refreshToken = jwtService.generateRefreshToken(user.getId(), user.getEmail(), user.getRole().name());
+        RefreshToken stored = new RefreshToken();
+        stored.setUser(user);
+        stored.setTokenHash(sha256(refreshToken));
+        Claims claims = jwtService.parse(refreshToken);
+        stored.setExpiresAt(claims.getExpiration().toInstant());
+        refreshTokenRepository.save(stored);
+        return toResponse(accessToken, refreshToken, user);
+    }
+
+    private AuthResponse toResponse(String accessToken, String refreshToken, User u) {
+        return new AuthResponse(accessToken, accessToken, refreshToken, u.getId(), u.getFirstName(), u.getLastName(),
+                u.getEmail(), u.getRole().name(), u.getPaymentStatus().name(), u.getAccountStatus().name(),
+                u.getPaymentStatus() == PaymentStatus.SUCCESS,
+                u.getPaymentStatus() == PaymentStatus.SUCCESS
+                        && u.getAccountStatus() == com.crlzTech.referal.common.enums.AccountStatus.ACTIVE,
+                u.getReferralCode());
     }
 }

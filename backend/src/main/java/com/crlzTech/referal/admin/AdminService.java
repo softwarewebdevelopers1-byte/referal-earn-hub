@@ -1,9 +1,10 @@
 package com.crlzTech.referal.admin;
 
 import com.crlzTech.referal.admin.dto.AdminDashboardResponse;
+import com.crlzTech.referal.admin.dto.AdminPaymentRow;
+import com.crlzTech.referal.admin.dto.AdminTransactionRow;
 import com.crlzTech.referal.admin.dto.AdminUserRow;
 import com.crlzTech.referal.common.enums.*;
-import com.crlzTech.referal.earnings.LedgerEntry;
 import com.crlzTech.referal.earnings.LedgerEntryRepository;
 import com.crlzTech.referal.payment.Payment;
 import com.crlzTech.referal.payment.PaymentRepository;
@@ -11,6 +12,7 @@ import com.crlzTech.referal.user.User;
 import com.crlzTech.referal.user.UserRepository;
 import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -44,20 +46,10 @@ public class AdminService {
                 .count();
         rejected = allPayments.stream().filter(p -> p.getStatus() == PaymentStatus.FAILED).count();
 
-        BigDecimal refRewards = nullSafe(
-                ledgerRepository.sumByUserAndStatusAndType(null, LedgerStatus.COMPLETED, LedgerType.REFERRAL_REWARD));
-        // Note: sumByUserAndStatusAndType requires userId; add a global aggregate query
-        // in LedgerEntryRepository:
-        // @Query("SELECT COALESCE(SUM(l.amount),0) FROM LedgerEntry l WHERE
-        // l.status=:status AND l.type=:type")
-        // BigDecimal sumGlobalByStatusAndType(...)
-        // For now, use a simple findAll-based fallback:
-        BigDecimal refSum = ledgerRepository.findAll().stream()
-                .filter(l -> l.getStatus() == LedgerStatus.COMPLETED && l.getType() == LedgerType.REFERRAL_REWARD)
-                .map(LedgerEntry::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal vidSum = ledgerRepository.findAll().stream()
-                .filter(l -> l.getStatus() == LedgerStatus.COMPLETED && l.getType() == LedgerType.VIDEO_REWARD)
-                .map(LedgerEntry::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal refSum = nullSafe(
+                ledgerRepository.sumGlobalByStatusAndType(LedgerStatus.COMPLETED, LedgerType.REFERRAL_REWARD));
+        BigDecimal vidSum = nullSafe(
+                ledgerRepository.sumGlobalByStatusAndType(LedgerStatus.COMPLETED, LedgerType.VIDEO_REWARD));
 
         return new AdminDashboardResponse(totalUsers, approved, pending, rejected,
                 refSum, vidSum, ledgerRepository.count());
@@ -69,8 +61,23 @@ public class AdminService {
                 .map(u -> new AdminUserRow(
                         u.getId(), u.getFirstName(), u.getLastName(), u.getEmail(), u.getPhone(),
                         u.getRole(), u.getPaymentStatus(), u.getAccountStatus(), u.getCreatedAt(),
-                        BigDecimal.ZERO, BigDecimal.ZERO // refine: compute per user if needed
+                        nullSafe(ledgerRepository.sumByUserAndStatusAndType(
+                                u.getId(), LedgerStatus.COMPLETED, LedgerType.REFERRAL_REWARD)),
+                        nullSafe(ledgerRepository.sumByUserAndStatusAndType(
+                                u.getId(), LedgerStatus.COMPLETED, LedgerType.VIDEO_REWARD))
                 ));
+    }
+
+    @Transactional(readOnly = true)
+    public Page<AdminPaymentRow> searchPayments(int page, int size) {
+        Pageable pageable = PageRequest.of(page, Math.min(size, 100), Sort.by(Sort.Direction.DESC, "createdAt"));
+        return paymentRepository.findAll(pageable).map(AdminPaymentRow::from);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<AdminTransactionRow> searchTransactions(int page, int size) {
+        Pageable pageable = PageRequest.of(page, Math.min(size, 100), Sort.by(Sort.Direction.DESC, "createdAt"));
+        return ledgerRepository.searchAll(null, null, pageable).map(AdminTransactionRow::from);
     }
 
     private static BigDecimal nullSafe(BigDecimal v) {

@@ -16,8 +16,7 @@ CREATE TABLE users (
     CONSTRAINT uq_users_email UNIQUE (email),
     CONSTRAINT uq_users_phone UNIQUE (phone),
     CONSTRAINT uq_users_referral_code UNIQUE (referral_code),
-    CONSTRAINT fk_users_referred_by FOREIGN KEY (referred_by_id) REFERENCES users(id),
-    CONSTRAINT ck_users_no_self_referral CHECK (referred_by_id IS NULL OR referred_by_id <> id)
+    CONSTRAINT fk_users_referred_by FOREIGN KEY (referred_by_id) REFERENCES users(id)
 );
 CREATE INDEX ix_users_referred_by ON users(referred_by_id);
 
