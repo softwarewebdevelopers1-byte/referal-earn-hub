@@ -119,16 +119,17 @@ public class AdminService {
     public AdminTransactionSummary summarizeTransactions(String date, String q, LedgerType type, LedgerStatus status) {
         DateBounds bounds = dateBounds(date);
         String normalizedQuery = normalize(q);
-        Object[] aggregate = ledgerRepository.aggregateAdmin(type, status, bounds.fromInclusive(), bounds.toExclusive(), normalizedQuery);
+        Object[] aggregate = normalizeAggregate(
+                ledgerRepository.aggregateAdmin(type, status, bounds.fromInclusive(), bounds.toExclusive(), normalizedQuery));
         Map<LedgerStatus, BigDecimal> amounts = new EnumMap<>(LedgerStatus.class);
         Map<LedgerStatus, Long> counts = new EnumMap<>(LedgerStatus.class);
         for (Object[] row : ledgerRepository.aggregateAdminByStatus(type, status, bounds.fromInclusive(), bounds.toExclusive(), normalizedQuery)) {
             LedgerStatus rowStatus = (LedgerStatus) row[0];
             counts.put(rowStatus, ((Number) row[1]).longValue());
-            amounts.put(rowStatus, nullSafe((BigDecimal) row[2]));
+            amounts.put(rowStatus, toBigDecimal(row[2]));
         }
         return new AdminTransactionSummary(
-                ((Number) aggregate[0]).longValue(), nullSafe((BigDecimal) aggregate[1]),
+                ((Number) aggregate[0]).longValue(), toBigDecimal(aggregate[1]),
                 counts.getOrDefault(LedgerStatus.PENDING, 0L), amounts.getOrDefault(LedgerStatus.PENDING, BigDecimal.ZERO),
                 counts.getOrDefault(LedgerStatus.COMPLETED, 0L), amounts.getOrDefault(LedgerStatus.COMPLETED, BigDecimal.ZERO),
                 counts.getOrDefault(LedgerStatus.FAILED, 0L), amounts.getOrDefault(LedgerStatus.FAILED, BigDecimal.ZERO),
@@ -222,6 +223,20 @@ public class AdminService {
 
     private static String normalizeEmail(String email) {
         return email.trim().toLowerCase(Locale.ROOT);
+    }
+
+    /** Hibernate may return a single aggregate row wrapped in an outer array. */
+    private static Object[] normalizeAggregate(Object[] aggregate) {
+        if (aggregate == null || aggregate.length == 0) return new Object[] { 0L, BigDecimal.ZERO };
+        if (aggregate.length == 1 && aggregate[0] instanceof Object[] nested) return nested;
+        return aggregate;
+    }
+
+    private static BigDecimal toBigDecimal(Object value) {
+        if (value == null) return BigDecimal.ZERO;
+        if (value instanceof BigDecimal decimal) return decimal;
+        if (value instanceof Number number) return new BigDecimal(number.toString());
+        return new BigDecimal(value.toString());
     }
 
     private record DateBounds(Instant fromInclusive, Instant toExclusive) {}

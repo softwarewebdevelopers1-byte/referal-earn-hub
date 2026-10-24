@@ -58,6 +58,9 @@ class InitialAdminSeederTest {
         assertThrows(IllegalStateException.class,
                 () -> new InitialAdminSeeder(users, encoder, "", "replace_me_with_a_strong_unique_password")
                         .run(new DefaultApplicationArguments(new String[0])));
+        assertThrows(IllegalStateException.class,
+                () -> new InitialAdminSeeder(users, encoder, "admin@example.com", "replace-me-with-a-strong-unique-password")
+                        .run(new DefaultApplicationArguments(new String[0])));
         verifyNoInteractions(encoder);
     }
 

@@ -51,7 +51,8 @@ class AdminServiceTest {
 
     @Test
     void summaryAggregatesAllMatchingRowsByStatus() {
-        when(ledger.aggregateAdmin(any(), any(), any(), any(), any())).thenReturn(new Object[] { 12L, new BigDecimal("120.50") });
+        when(ledger.aggregateAdmin(any(), any(), any(), any(), any())).thenReturn(
+                new Object[] { new Object[] { 12L, new BigDecimal("120.50") } });
         when(ledger.aggregateAdminByStatus(any(), any(), any(), any(), any())).thenReturn(List.of(
                 new Object[] { LedgerStatus.PENDING, 3L, new BigDecimal("30.00") },
                 new Object[] { LedgerStatus.COMPLETED, 8L, new BigDecimal("90.50") },

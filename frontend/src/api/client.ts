@@ -18,7 +18,18 @@ import type {
   Paginated,
 } from "./types";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL.replace(/\/$/, "");
+// Every client path is already rooted at /api. Accept either an origin
+// (http://localhost:8080) or the Docker shorthand (/api) without producing
+// /api/api/... URLs.
+const configuredApiBase = (import.meta.env.VITE_API_BASE_URL ?? "")
+  .trim()
+  .replace(/\/+$/, "");
+const API_BASE = configuredApiBase.replace(/\/api$/i, "");
+
+export function resolveApiUrl(path: string): string {
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  return `${API_BASE}${normalizedPath}`;
+}
 const TOKEN_KEY = "earnhub_token";
 const SESSION_TOKEN_KEY = "earnhub_session_token";
 const REFRESH_TOKEN_KEY = "earnhub_refresh_token";
@@ -150,7 +161,7 @@ async function request<T>(
 
   let res: Response;
   try {
-    res = await fetch(`${API_BASE}${path}`, {
+    res = await fetch(resolveApiUrl(path), {
       ...init,
       headers,
       credentials: "omit",

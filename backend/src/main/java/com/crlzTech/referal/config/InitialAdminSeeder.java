@@ -81,6 +81,7 @@ public class InitialAdminSeeder implements ApplicationRunner {
     private static boolean isPlaceholder(String value) {
         String normalized = value.trim().toLowerCase(Locale.ROOT);
         return normalized.startsWith("replace_me")
+                || normalized.startsWith("replace-me")
                 || normalized.startsWith("change-me")
                 || normalized.equals("password")
                 || normalized.equals("password123");

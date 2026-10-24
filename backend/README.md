@@ -6,7 +6,8 @@ Keep `INITIAL_ADMIN_EMAIL` and `INITIAL_ADMIN_PASSWORD` in `backend/.env`.
 When the `users` table is empty, startup creates that single regular `ADMIN`
 account, hashes the password, and leaves existing users unchanged. The
 password must be unique and at least eight characters; placeholder values are
-rejected. Docker Compose reads this same file with
+rejected. Existing files that still use `DEV_ADMIN_EMAIL` and
+`DEV_ADMIN_PASSWORD` are accepted as a migration fallback. Docker Compose reads this same file with
 `docker compose --env-file backend/.env ...`.
 
 ## PayHero configuration

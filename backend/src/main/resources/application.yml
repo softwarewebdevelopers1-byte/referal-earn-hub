@@ -31,8 +31,10 @@ spring:
 app:
   timezone: ${APP_TIMEZONE:Africa/Nairobi}
   initial-admin:
-    email: ${INITIAL_ADMIN_EMAIL:}
-    password: ${INITIAL_ADMIN_PASSWORD:}
+    # INITIAL_ADMIN_* is the documented name. DEV_ADMIN_* remains a
+    # compatibility fallback for existing backend/.env files during migration.
+    email: ${INITIAL_ADMIN_EMAIL:${DEV_ADMIN_EMAIL:}}
+    password: ${INITIAL_ADMIN_PASSWORD:${DEV_ADMIN_PASSWORD:}}
   jwt:
     secret: ${JWT_SECRET:change-me-to-a-64-char-random-string-in-production-change-me}
     access-expiration-ms: ${JWT_ACCESS_EXPIRATION_MS:${JWT_EXPIRATION_MS:900000}}
